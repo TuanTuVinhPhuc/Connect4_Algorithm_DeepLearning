@@ -7,7 +7,7 @@ from settings import ROWS, COLUMNS, PLAYER, AI, EMPTY
 from board import is_valid_location, get_next_open_row, get_valid_locations, create_board, drop_piece, winning_move
 
 C_PARAM = math.sqrt(2) 
-MIN_SIMULATIONS = 100 
+MIN_SIMULATIONS = 30000
 ROLLOUT_POLICY_PROB = 0.8  
 
 class MCTSNode:
