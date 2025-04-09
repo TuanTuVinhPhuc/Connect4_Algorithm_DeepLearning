@@ -1,0 +1,28 @@
+import pygame as pg
+
+WIDTH = 800
+ROWS = 6
+COLUMNS = 7
+SQUARE_SIZE = WIDTH // COLUMNS
+HEIGHT = (ROWS + 1) * SQUARE_SIZE 
+RADIUS = int(SQUARE_SIZE / 2 - 5)
+ANIMATION_SPEED = 15  
+
+pg.init()
+pg.font.init()
+FONT = pg.font.SysFont('Arial', 36)
+
+WHITE = (255, 255, 255)
+BLACK = (0, 0, 0)
+RED = (255, 50, 50)
+YELLOW = (255, 255, 50)
+BLUE = (50, 50, 255)
+DARK_BLUE = (0, 0, 150)
+LIGHT_BLUE = (100, 100, 255)
+GRAY = (220, 220, 220)
+
+PLAYER = 1
+AI = 2
+EMPTY = 0
+
+AI_DIFFICULTY = 5
