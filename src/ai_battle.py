@@ -213,7 +213,7 @@ def main(agent):
             if calc_time >= pause_time:
                 thinking_start = time.time()
                 col, _ = agent.fast_mcts(board, 300, temperature_decay=True)
-                # col, _ = mcts_search(board, AI, neural_network=None, simulations=20000)
+                # col, _ = mcts_search(board, AI, neural_network=None, simulations=30000)
                 thinking_time = time.time() - thinking_start
                 total_minimax_time += thinking_time
                 
@@ -270,8 +270,8 @@ def main(agent):
             if calc_time >= pause_time:
                 thinking_start = time.time()
                 # col, _ = agent1.fast_mcts(board, 300, temperature_decay=False)
-                col, _ = mcts_search(board, AI, neural_network=None, simulations=10000)
-                # col, _ = minimax(board, AI_DIFFICULTY, -math.inf, math.inf, True)
+                # col, _ = mcts_search(board, AI, neural_network=None, simulations=10000)
+                col, _ = minimax(board, AI_DIFFICULTY, -math.inf, math.inf, True)
                 thinking_time = time.time() - thinking_start
                 total_mcts_time += thinking_time
                 

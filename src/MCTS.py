@@ -11,7 +11,7 @@ MIN_SIMULATIONS = 30000
 ROLLOUT_POLICY_PROB = 0.8  
 
 class MCTSNode:
-    def __init__(self, board, parent=None, move=None, player=AI):
+    def __init__(self, board, parent=None, move=None, player=AI, prior=None, puct_coefficient=1.0):
         self.board = board.copy()
         self.parent = parent
         self.move = move  
@@ -22,22 +22,61 @@ class MCTSNode:
         self.untried_moves = get_valid_locations(board)  
         self.terminal = False  
         self.total_value = 0.0
+
+        self.prior = prior  
+        self.puct_coefficient = puct_coefficient
         
         if winning_move(board, AI)[0] or winning_move(board, PLAYER)[0] or len(self.untried_moves) == 0:
             self.terminal = True
     
+    # def uct_select_child(self):
+    #     unvisited = [child for child in self.children if child.visits == 0]
+    #     if unvisited:
+    #         return random.choice(unvisited)
+        
+    #     # Tính giá trị UCT cho tất cả các node con
+    #     log_total_visits = math.log(self.visits)
+        
+    #     # Tìm giá trị UCT cao nhất
+    #     return max(self.children, key=lambda c: c.get_uct_value(log_total_visits))
+            
     def uct_select_child(self):
         unvisited = [child for child in self.children if child.visits == 0]
         if unvisited:
             return random.choice(unvisited)
-            # return max(unvisited, key=lambda c: c.heuristic_value + 0.03 * random.random())
-        
-        # Tính giá trị UCT cho tất cả các node con
-        log_total_visits = math.log(self.visits)
-        
-        # Tìm giá trị UCT cao nhất
-        return max(self.children, key=lambda c: c.get_uct_value(log_total_visits))
     
+        log_total_visits = math.log(self.visits)
+    
+        best_score = float('-inf')
+        best_child = None
+    
+        for child in self.children:
+            # Tính exploitation (Q value)
+            exploit = child.total_value / child.visits
+        
+            # Tính exploration với PUCT
+            if child.prior is not None and hasattr(child, 'move') and child.move is not None:
+                # Sử dụng prior từ neural network nếu có
+                prior_prob = child.prior[child.move] if child.move < len(child.prior) else 1/len(self.children)
+                explore = self.puct_coefficient * prior_prob * math.sqrt(log_total_visits) / (1 + child.visits)
+            else:
+                # UCB1 truyền thống
+                explore = self.puct_coefficient * math.sqrt(2 * log_total_visits / child.visits)
+        
+            # Bias cho cột giữa
+            center_bias = 0
+            if child.move is not None:
+                center_bias = (1.0 - abs(child.move - COLUMNS // 2) / (COLUMNS // 2)) * 0.1
+        
+            # Tổng UCB/PUCT score
+            ucb = exploit + explore + center_bias
+        
+            if ucb > best_score:
+                best_score = ucb
+                best_child = child
+            
+        return best_child
+            
     def get_uct_value(self, log_parent_visits):
         if self.visits == 0:
             return float('inf')
@@ -52,37 +91,79 @@ class MCTSNode:
         
         return avg_value + exploration + center_bias
     
+    # def expand(self):
+    #     if not self.untried_moves or self.terminal:
+    #         return None
+        
+    #     # Ưu tiên các nước đi ở giữa bàn cờ
+    #     center_col = COLUMNS // 2
+    #     weighted_moves = []
+    #     for move in self.untried_moves:
+    #         weight = 1.0 + (1.0 - abs(move - center_col) / center_col) * 2.0
+    #         weighted_moves.append((move, weight))
+        
+    #     moves, weights = zip(*weighted_moves)
+    #     total_weight = sum(weights)
+    #     normalized_weights = [w / total_weight for w in weights]
+
+    #     # Random bias về hướng cột middle.
+    #     move = np.random.choice(moves, p=normalized_weights)
+        
+    #     self.untried_moves.remove(move)
+        
+    #     child_board = self.board.copy()
+    #     row = get_next_open_row(child_board, move)
+    #     if row is not None:
+    #         drop_piece(child_board, row, move, self.player)
+            
+    #         next_player = PLAYER if self.player == AI else AI
+    #         child_node = MCTSNode(child_board, self, move, next_player)
+    #         self.children.append(child_node)
+            
+    #         return child_node
+        
+    #     return None
+
     def expand(self):
         if not self.untried_moves or self.terminal:
             return None
-        
+    
         # Ưu tiên các nước đi ở giữa bàn cờ
         center_col = COLUMNS // 2
         weighted_moves = []
         for move in self.untried_moves:
             weight = 1.0 + (1.0 - abs(move - center_col) / center_col) * 2.0
             weighted_moves.append((move, weight))
-        
+    
         moves, weights = zip(*weighted_moves)
         total_weight = sum(weights)
         normalized_weights = [w / total_weight for w in weights]
 
         # Random bias về hướng cột middle.
         move = np.random.choice(moves, p=normalized_weights)
-        
+    
         self.untried_moves.remove(move)
-        
+    
         child_board = self.board.copy()
         row = get_next_open_row(child_board, move)
         if row is not None:
             drop_piece(child_board, row, move, self.player)
-            
-            next_player = PLAYER if self.player == AI else AI
-            child_node = MCTSNode(child_board, self, move, next_player)
-            self.children.append(child_node)
-            
-            return child_node
         
+            next_player = PLAYER if self.player == AI else AI
+        
+            # Lấy prior probability từ neural network nếu có
+            child_prior = None
+            if self.prior is not None:
+                child_prior = self.prior
+        
+             # Truyền puct_coefficient xuống nút con
+            child_node = MCTSNode(child_board, self, move, next_player, 
+                                prior=child_prior, 
+                                puct_coefficient=self.puct_coefficient)
+            self.children.append(child_node)
+        
+            return child_node
+    
         return None
     
     def update(self, result):
@@ -400,7 +481,7 @@ def rollout(board, player, neural_network=None, nn_prob=0.7):
 
 
 
-def mcts_search(board, player=AI, neural_network=None, simulations=MIN_SIMULATIONS):
+def mcts_search(board, player=AI, neural_network=None, simulations=MIN_SIMULATIONS, puct_coefficient=1.0):
     for col in range(COLUMNS):
         if is_valid_location(board, col):
             row = get_next_open_row(board, col)
@@ -408,8 +489,9 @@ def mcts_search(board, player=AI, neural_network=None, simulations=MIN_SIMULATIO
                 board_copy = board.copy()
                 drop_piece(board_copy, row, col, player)
                 if winning_move(board_copy, player)[0]:
-                    policy = np.zeros(COLUMNS)
-                    policy[col] = 1.0
+                    policy = np.ones(COLUMNS) * 0.01  
+                    policy[col] = 0.93
+                    policy = policy / np.sum(policy)
                     return col, policy
     
     opponent = PLAYER if player == AI else AI
@@ -420,8 +502,9 @@ def mcts_search(board, player=AI, neural_network=None, simulations=MIN_SIMULATIO
                 board_copy = board.copy()
                 drop_piece(board_copy, row, col, opponent)
                 if winning_move(board_copy, opponent)[0]:
-                    policy = np.zeros(COLUMNS)
-                    policy[col] = 1.0
+                    policy = np.ones(COLUMNS) * 0.01  # Cải tiến policy
+                    policy[col] = 0.93
+                    policy = policy / np.sum(policy)
                     return col, policy
     
     # Ưu tiên cột giữa
@@ -435,20 +518,27 @@ def mcts_search(board, player=AI, neural_network=None, simulations=MIN_SIMULATIO
             break
             
     if is_empty_board:
-        policy = np.zeros(COLUMNS)
-        policy[COLUMNS // 2] = 1.0
+        policy = np.ones(COLUMNS) * 0.01
+        policy[COLUMNS // 2] = 0.93
+        policy = policy / np.sum(policy)
         return COLUMNS // 2, policy
     
     if board[ROWS-1, COLUMNS//2] == EMPTY:
-        policy = np.zeros(COLUMNS)
-        policy[COLUMNS // 2] = 1.0
+        policy = np.ones(COLUMNS) * 0.01
+        policy[COLUMNS // 2] = 0.93
+        policy = policy / np.sum(policy)
         return COLUMNS // 2, policy
     
-    root = MCTSNode(board, player=player)
+    prior = None
+    if neural_network:
+        prior, _ = neural_network.predict(board)
+
+    root = MCTSNode(board, player=player, prior=prior, puct_coefficient=puct_coefficient)
     
     if len(root.untried_moves) == 1:
-        policy = np.zeros(COLUMNS)
-        policy[root.untried_moves[0]] = 1.0
+        policy = np.ones(COLUMNS) * 0.01
+        policy[root.untried_moves[0]] = 0.93
+        policy = policy / np.sum(policy)
         return root.untried_moves[0], policy
 
     start_time = time.time()
@@ -476,7 +566,8 @@ def mcts_search(board, player=AI, neural_network=None, simulations=MIN_SIMULATIO
         sim_count += 1
         
         best_child = max(root.children, key=lambda c: c.visits) if root.children else None
-        if best_child and best_child.visits > 100 and best_child.total_value / best_child.visits > 0.95:
+        min_visits = min(100, simulations // 3) 
+        if best_child and best_child.visits > min_visits and best_child.total_value / best_child.visits > 0.95:
             break
     
     print(f"MCTS: {sim_count} mô phỏng trong {time.time() - start_time:.3f}s")
