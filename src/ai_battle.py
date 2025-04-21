@@ -13,6 +13,8 @@ from utils import create_gradient_background, draw_board, animate_piece_drop, sh
 from MCTS import mcts_search
 from ai import minimax
 from NN import Connect4NeuralNetwork, Connect4Agent 
+from heuristic import HeuristicAgent
+from ai_none_tatic import minimax_v1
 
 minimax_wins = 0
 mcts_wins = 0
@@ -42,14 +44,13 @@ def draw_thinking_status(screen, player, dots, calculation_time):
     overlay_x = SQUARE_SIZE * COLUMNS // 2 - overlay_width // 2
     overlay_y = 10
     screen.blit(overlay, (overlay_x, overlay_y))
-    
-    # Màu sắc tùy thuộc AI nào đang suy nghĩ
+
     if player == 0:  # Minimax AI (AI1)
-        color = (100, 200, 255)  # Xanh dương
+        color = (100, 200, 255) 
         name = "Minimax AI"
-    else:  # MCTS AI (AI2)
-        color = (255, 180, 100)  # Cam
-        name = "MCTS AI"
+    else:  # NN AI (AI2)
+        color = (255, 180, 100)
+        name = "NN AI"
     
     # Vẽ text chính
     font = pg.font.SysFont('Arial', 22)
@@ -120,12 +121,13 @@ def main(agent):
 
     # mm = Connect4NeuralNetwork('models/connect4_model_cycle_2.h5')
     # agent1 = Connect4Agent(mm)
+    agent = HeuristicAgent(player=AI)
 
     # Khởi tạo pygame
     pg.init()
     pg.font.init()
     screen = pg.display.set_mode((SQUARE_SIZE * COLUMNS, (ROWS + 1) * SQUARE_SIZE))
-    pg.display.set_caption("AI Battle: Minimax vs MCTS")
+    pg.display.set_caption("AI Battle: Minimax vs NN")
     
     # Tạo bảng chơi
     board = create_board()
@@ -199,7 +201,6 @@ def main(agent):
                 draw_board(screen, board, background)
                 update_stats(screen, background)
         
-        # AI1's turn (Minimax)
         if turn == 0 and not game_over:
             if not ai_thinking:
                 # Bắt đầu suy nghĩ
@@ -212,28 +213,32 @@ def main(agent):
             
             if calc_time >= pause_time:
                 thinking_start = time.time()
-                col, _ = agent.fast_mcts(board, 300, temperature_decay=True)
-                # col, _ = mcts_search(board, AI, neural_network=None, simulations=30000)
+                start_time = time.time()
+
+                col, _ = minimax(board, 8, -math.inf, math.inf, True)
+                end_time = time.time()
+                print(f"Minimax - thời gian suy nghĩ: {end_time - start_time:.3f}s")
+
                 thinking_time = time.time() - thinking_start
                 total_minimax_time += thinking_time
                 
                 if col is not None and is_valid_location(board, col):
                     row = get_next_open_row(board, col)
-                    animate_piece_drop(screen, board, row, col, PLAYER, background, 15)
-                    drop_piece(board, row, col, PLAYER)
+                    animate_piece_drop(screen, board, row, col, AI, background, 15)
+                    drop_piece(board, row, col, AI)
                     
-                    print(f"NN đã chọn cột {col} (thời gian: {thinking_time:.3f}s)")
+                    print(f"minimax đã chọn cột {col} (thời gian: {thinking_time:.3f}s)")
                     
                     # Vẽ bảng sau khi đi
                     draw_board(screen, board, background)
                     update_stats(screen, background)
                     
                     # Kiểm tra AI1 thắng
-                    win, winning_cells = winning_move(board, PLAYER)
+                    win, winning_cells = winning_move(board, AI)
                     if win:
                         winner_cells = winning_cells
                         draw_board(screen, board, background, None, None, winner_cells)
-                        show_game_over(screen, "Neraul network AI thắng!", background)
+                        show_game_over(screen, "Minimax AI thắng!", background)
                         minimax_wins += 1
                         games_played += 1
                         update_stats(screen, background)
@@ -252,10 +257,9 @@ def main(agent):
                         restart_counter = 0
                         continue
                         
-                    turn = 1  # Chuyển sang MCTS AI
+                    turn = 1  # Chuyển sang NN AI
                     ai_thinking = False
         
-        # AI2's turn (MCTS)
         if turn == 1 and not game_over:
             if not ai_thinking:
                 # Bắt đầu suy nghĩ
@@ -266,32 +270,37 @@ def main(agent):
             calc_time = time.time() - thinking_start
             draw_thinking_status(screen, 1, thinking_dots, calc_time)
             
-            # Sử dụng AI MCTS
             if calc_time >= pause_time:
                 thinking_start = time.time()
-                # col, _ = agent1.fast_mcts(board, 300, temperature_decay=False)
-                # col, _ = mcts_search(board, AI, neural_network=None, simulations=10000)
-                col, _ = minimax(board, AI_DIFFICULTY, -math.inf, math.inf, True)
+
+                col = mcts_search(board, PLAYER)
+
+                # flipped_board = board.copy()
+                # flipped_board[flipped_board == 1] = -1  # Giá trị tạm thời
+                # flipped_board[flipped_board == 2] = 1
+                # flipped_board[flipped_board == -1] = 2
+                # col, _ = minimax(flipped_board, 8, -math.inf, math.inf, True)
+
                 thinking_time = time.time() - thinking_start
                 total_mcts_time += thinking_time
                 
                 if col is not None and is_valid_location(board, col):
                     row = get_next_open_row(board, col)
-                    animate_piece_drop(screen, board, row, col, AI, background, 15)
-                    drop_piece(board, row, col, AI)
+                    animate_piece_drop(screen, board, row, col, PLAYER, background, 15)
+                    drop_piece(board, row, col, PLAYER)
                     
-                    print(f"MCTS đã chọn cột {col} (thời gian: {thinking_time:.3f}s)")
+                    print(f"NN đã chọn cột {col} (thời gian: {thinking_time:.3f}s)")
                     
                     # Vẽ bảng sau khi đi
                     draw_board(screen, board, background)
                     update_stats(screen, background)
                     
                     # Kiểm tra AI2 thắng
-                    win, winning_cells = winning_move(board, AI)
+                    win, winning_cells = winning_move(board, PLAYER)
                     if win:
                         winner_cells = winning_cells
                         draw_board(screen, board, background, None, None, winner_cells)
-                        show_game_over(screen, "MCTS AI thắng!", background)
+                        show_game_over(screen, "NN AI thắng!", background)
                         mcts_wins += 1
                         games_played += 1
                         update_stats(screen, background)
@@ -320,7 +329,7 @@ def main(agent):
 
 if __name__ == "__main__":
     # Hiển thị thông tin khi khởi động
-    print("=== AI Battle: Minimax vs MCTS ===")
+    print("=== AI Battle: Minimax vs NN ===")
     print("Phím tắt:")
     print("  SPACE: Reset game")
     print("  A: Bật/tắt tự động chơi")
@@ -329,7 +338,7 @@ if __name__ == "__main__":
     print("=====================================")
     
     # Chạy game
-    nn = Connect4NeuralNetwork('models/connect4_model.h5')
+    nn = Connect4NeuralNetwork('models/connect4_model_cycle_1.h5')
     agent = Connect4Agent(nn)
     main(agent)
 
