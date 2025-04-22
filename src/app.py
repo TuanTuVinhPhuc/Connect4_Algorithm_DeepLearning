@@ -1,15 +1,12 @@
 from fastapi import FastAPI, HTTPException
-import random
 import uvicorn
 from pydantic import BaseModel
 from typing import List, Optional
 from fastapi.middleware.cors import CORSMiddleware
 from settings import *
 from ai import minimax
-import math
 from MCTS import mcts_search
 import numpy as np
-from ai_none_tatic import minimax_v1
 import time
 
 app = FastAPI()
