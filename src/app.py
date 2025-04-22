@@ -47,21 +47,11 @@ async def make_move(game_state: GameState) -> AIResponse:
   
         start_time = time.time()
 
-        if current_player == 1:
-            # flipped_board = board.copy()
-            # flipped_board[flipped_board == 1] = -1  # Giá trị tạm thời
-            # flipped_board[flipped_board == 2] = 1
-            # flipped_board[flipped_board == -1] = 2 
-
-            # selected_move, _ = minimax(flipped_board, 10, -math.inf, math.inf, AI, True)  # vì AI =2 mà ta lại đang đánh quân 1
-
-            selected_move, _ = mcts_search(board, PLAYER, neural_network=None, simulations=50000)
-        elif current_player == 2:
-            selected_move, _ = minimax(board, 10, -math.inf, math.inf, AI, True) 
+        selected_move = 0
 
         end_time = time.time()
-        print(f"Minimax - thời gian suy nghĩ: {end_time - start_time:.3f}s")
-        print("minimax đang chơi với số thứ tự: ", current_player)
+        print(f"MCTS - thời gian suy nghĩ: {end_time - start_time:.3f}s")
+        print("MCTS đang chơi với số thứ tự: ", current_player)
 
         return AIResponse(move=selected_move)
     except Exception as e:
@@ -73,6 +63,10 @@ async def make_move(game_state: GameState) -> AIResponse:
             print("⚠️ Trả fallback move:", game_state.valid_moves[0])
             return AIResponse(move=int(game_state.valid_moves[0]))
         raise HTTPException(status_code=400, detail=str(e))
+
+@app.get("/api/test")
+async def health_check():
+    return {"status": "ok", "message": "Server is running"}
 
 if __name__ == "__main__":
     uvicorn.run(app, host="0.0.0.0", port=8080)
