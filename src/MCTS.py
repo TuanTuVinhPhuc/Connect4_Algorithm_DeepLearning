@@ -57,7 +57,7 @@ class MCTSNode:
         
         center_bias = 0
         if self.move is not None:
-            center_bias = (1.0 - abs(self.move - COLUMNS // 2) / (COLUMNS // 2)) * 0.1
+            center_bias = (1.0 - abs(self.move - COLUMNS // 2) / (COLUMNS // 2)) * 0.3
         
         return avg_value + exploration + center_bias
 
@@ -67,9 +67,9 @@ class MCTSNode:
 
         center_col = COLUMNS // 2
         weighted_moves = []
-        claimeven_factor = 1.5
-        baseinverse_factor = 2.0
-        oddthreat_factor = 1.2
+        claimeven_factor = 1.4
+        baseinverse_factor = 2.8
+        oddthreat_factor = 1.1
 
         # Cache get_next_open_row
         row_cache = {move: get_next_open_row(self.board, move) for move in self.untried_moves}
@@ -80,7 +80,9 @@ class MCTSNode:
             row = row_cache[move]
             if row is None:
                 continue
-            center_weight = 1.0 + (1.0 - abs(move - center_col) / center_col) * 2.0
+            center_weight = 1.0 + (1.0 - abs(move - center_col) / center_col) * 4.0
+            if move == center_col:
+                center_weight *= 1.5 # Thêm chút bias cho center.
             claimeven_weight = claimeven_factor if row in [1, 3, 5] else 1.0
             piece_count = piece_counts[move]
             baseinverse_weight = 1.0
@@ -500,7 +502,7 @@ def rollout_policy(board, player):
             
         board[row][move] = player
         score = evaluate_board(board, player) - evaluate_board(board, opponent)
-        center_preference = (1.0 - abs(move - COLUMNS // 2) / (COLUMNS // 2)) * 2
+        center_preference = (1.0 - abs(move - COLUMNS // 2) / (COLUMNS // 2)) * 5
         score += center_preference
         
         # Kiểm tra chuỗi 3 quân cục bộ
