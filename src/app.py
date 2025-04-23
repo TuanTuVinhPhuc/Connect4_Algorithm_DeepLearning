@@ -44,7 +44,7 @@ async def make_move(game_state: GameState) -> AIResponse:
   
         start_time = time.time()
 
-        selected_move = 0
+        selected_move = 1
 
         end_time = time.time()
         print(f"MCTS - thời gian suy nghĩ: {end_time - start_time:.3f}s")
