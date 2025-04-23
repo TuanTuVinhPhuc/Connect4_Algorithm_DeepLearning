@@ -32,23 +32,8 @@ async def make_move(game_state: GameState) -> AIResponse:
     try:
         if not game_state.valid_moves:
             raise ValueError("Không có nước đi hợp lệ")
-        
-        # change logic thuật toán AI của bạn ở đây
-        print("Current player:", game_state.current_player)
-        print("board in global")
-        for row in game_state.board:
-           print(row)
 
-        board = np.array(game_state.board)
-        current_player = game_state.current_player
-  
-        start_time = time.time()
-
-        selected_move = 1
-
-        end_time = time.time()
-        print(f"MCTS - thời gian suy nghĩ: {end_time - start_time:.3f}s")
-        print("MCTS đang chơi với số thứ tự: ", current_player)
+        selected_move = mcts_search(game_state.board, game_state.current_player, 30000, 6)
 
         return AIResponse(move=selected_move)
     except Exception as e:

@@ -60,62 +60,54 @@ class MCTSNode:
             center_bias = (1.0 - abs(self.move - COLUMNS // 2) / (COLUMNS // 2)) * 0.1
         
         return avg_value + exploration + center_bias
-    
+
     def expand(self):
         if not self.untried_moves or self.terminal:
             return None
-        
-        # Ưu tiên các nước đi ở giữa bàn cờ
+
         center_col = COLUMNS // 2
         weighted_moves = []
         claimeven_factor = 1.5
         baseinverse_factor = 2.0
-        oddthreat_factor = 1.2 
+        oddthreat_factor = 1.2
+
+        # Cache get_next_open_row
+        row_cache = {move: get_next_open_row(self.board, move) for move in self.untried_moves}
+        # Vector hóa piece_count
+        piece_counts = np.count_nonzero(self.board != EMPTY, axis=0)
 
         for move in self.untried_moves:
-            row = get_next_open_row(self.board, move)
+            row = row_cache[move]
             if row is None:
                 continue
-
             center_weight = 1.0 + (1.0 - abs(move - center_col) / center_col) * 2.0
-
-            # Trọng số Claimeven: Ưu tiên hàng chẵn (0, 2, 4), bàn cờ bị flip nên đổi thành 1, 3, 5
             claimeven_weight = claimeven_factor if row in [1, 3, 5] else 1.0
-            
-            # Trọng số Baseinverse: Ưu tiên ô thấp (hàng 5 hoặc chẵn thấp nhất) trong cột ít quân
-            piece_count = sum(1 for r in range(ROWS) if self.board[r][move] != EMPTY)
+            piece_count = piece_counts[move]
             baseinverse_weight = 1.0
-            if piece_count <= 2 and row in [1, 3, 5]:  # Cột có 0-2 quân, hàng chẵn
+            if piece_count <= 2 and row in [1, 3, 5]:
                 baseinverse_weight = baseinverse_factor if row == 5 else baseinverse_factor * 0.75
-
             oddthreat_weight = oddthreat_factor if row in [0, 2, 4] else 1.0
-                
             weight = center_weight * claimeven_weight * baseinverse_weight * oddthreat_weight
             weighted_moves.append((move, weight))
-        
+
         if not weighted_moves:
             return None
-        
+
         moves, weights = zip(*weighted_moves)
         total_weight = sum(weights)
         normalized_weights = [w / total_weight for w in weights]
-
-        # Random bias về hướng cột middle.
         move = np.random.choice(moves, p=normalized_weights)
-        
+
         self.untried_moves.remove(move)
-        
         child_board = self.board.copy()
-        row = get_next_open_row(child_board, move)
+        row = row_cache[move]
         if row is not None:
-            drop_piece(child_board, row, move, self.player)
-            
+            child_board[row, move] = self.player
             next_player = PLAYER if self.player == AI else AI
             child_node = MCTSNode(child_board, self, move, next_player)
             self.children.append(child_node)
-            
             return child_node
-        
+
         return None
     
     def update(self, result):
@@ -287,7 +279,7 @@ def evaluate_board(board, piece):
             score += base_score
     
     board_eval_cache[cache_key] = score
-    if len(board_eval_cache) > MAX_CACHE_SIZE:  # Định nghĩa MAX_CACHE_SIZE
+    if len(board_eval_cache) > MAX_CACHE_SIZE * 2: 
         board_eval_cache.popitem(last=False)
         
     return score
@@ -339,11 +331,12 @@ def detect_two_way_win(board, player):
     
     result = (None, 0)
     two_way_win_cache[cache_key] = result
+    if len(two_way_win_cache) > 20000:
+        two_way_win_cache.popitem(last=False)
     return result
 
 # Cache cho find_forced_win
 forced_win_cache = {}
-
 def find_forced_win_move(board, player, depth, alpha=-float('inf'), beta=float('inf')):
     if depth <= 0:
         return None, 0
@@ -449,14 +442,14 @@ def find_forced_win_move(board, player, depth, alpha=-float('inf'), beta=float('
     return result
 
 def find_forced_win(board, player, depth):
-    move, value = find_forced_win_move(board, player, depth)
+    move, _ = find_forced_win_move(board, player, depth)
     return move
 
 def rollout_policy(board, player):
     valid_moves = get_valid_locations(board)
     if not valid_moves:
         return None
-
+    
     # Kiểm tra chiến thắng ngay lập tức
     for move in valid_moves:
         row = get_next_open_row(board, move)
@@ -492,9 +485,11 @@ def rollout_policy(board, player):
         return opponent_two_way
     
     # Kiểm tra forced win
-    forced_win = find_forced_win(board, player, 4)
-    if forced_win is not None:
-        return forced_win
+    pieces_count = sum((row == PLAYER).sum() + (row == AI).sum() for row in board)
+    if (pieces_count > 15): 
+       forced_win = find_forced_win(board, player, 4)
+       if forced_win is not None:
+            return forced_win
     
     # Tính điểm cho các nước đi
     move_scores = []
@@ -588,6 +583,8 @@ def mcts_search(board, player, simulations=MIN_SIMULATIONS, time_limit=TIME_LIMI
     if not isinstance(board, np.ndarray):
         board = np.array(board)
     
+    opponent = PLAYER if player == AI else AI
+
     # Thực hiện kiểm tra thắng/thua nhanh trước khi bắt đầu MCTS
     for col in range(COLUMNS):
         if is_valid_location(board, col):
@@ -598,13 +595,7 @@ def mcts_search(board, player, simulations=MIN_SIMULATIONS, time_limit=TIME_LIMI
                     board[row][col] = EMPTY
                     return col
                 board[row][col] = EMPTY
-    
-    opponent = PLAYER if player == AI else AI
-    for col in range(COLUMNS):
-        if is_valid_location(board, col):
-            row = get_next_open_row(board, col)
-            if row is not None:
-                board[row][col] = opponent
+
                 if winning_move(board, opponent)[0]:
                     board[row][col] = EMPTY
                     return col
@@ -625,20 +616,8 @@ def mcts_search(board, player, simulations=MIN_SIMULATIONS, time_limit=TIME_LIMI
             return forced_win_move
     
     # Ưu tiên cột giữa nếu là bàn cờ trống
-    is_empty_board = True
-    for r in range(ROWS):
-        for c in range(COLUMNS):
-            if board[r, c] != EMPTY:
-                is_empty_board = False
-                break
-        if not is_empty_board:
-            break
-            
-    if is_empty_board:
-        return COLUMNS // 2
-    
-    # Ưu tiên cột giữa nếu còn trống
-    if board[ROWS-1, COLUMNS//2] == EMPTY:
+    is_empty_board = np.all(board == EMPTY)
+    if is_empty_board or board[ROWS-1, COLUMNS//2] == EMPTY:
         return COLUMNS // 2
     
     # Bắt đầu MCTS
@@ -650,12 +629,12 @@ def mcts_search(board, player, simulations=MIN_SIMULATIONS, time_limit=TIME_LIMI
     start_time = time.time()
     sim_count = 0
     
-    max_time = time_limit * 0.9
+    max_time = time_limit * 0.95
     
     pieces_count = np.count_nonzero(board != 0)
     time_factor = min(1.0, pieces_count / (ROWS * COLUMNS * 0.7))
     
-    actual_max_time = max_time * (0.9 + 0.1 * time_factor)
+    actual_max_time = max_time * (0.95 + 0.05 * time_factor)
     
     while ((time.time() - start_time) < actual_max_time) and (sim_count < simulations):
         node = root
@@ -680,29 +659,25 @@ def mcts_search(board, player, simulations=MIN_SIMULATIONS, time_limit=TIME_LIMI
             else:
                 node.update(result)
             node = node.parent
-        
         sim_count += 1
         
-        best_child = max(root.children, key=lambda c: c.visits) if root.children else None
-        visits_threshold = min(200, sim_count // 3) 
-        
-        if best_child and best_child.visits > visits_threshold:
-            win_rate = best_child.total_value / best_child.visits
+        if sim_count % 100 == 0 and sim_count > simulations // 4:  # Kiểm tra định kỳ
 
-            if win_rate > 0.9 and sim_count > simulations // 2:
-                break
-            
-            if sim_count > simulations and win_rate > 0.75:
-                second_best = sorted(root.children, key=lambda c: c.visits)[-2] if len(root.children) >= 2 else None
-                if second_best and best_child.visits > second_best.visits + 100:
-                    break
+            if root.children:
+                sorted_children = sorted(root.children, key=lambda c: c.visits, reverse=True)
+                best_child = sorted_children[0]
+                second_best = sorted_children[1] if len(sorted_children) > 1 else None
+                if best_child.visits > 0:
+                    win_rate = best_child.total_value / best_child.visits
+                    if (win_rate > 0.9 and sim_count > simulations * 0.75) or \
+                       (second_best and best_child.visits > second_best.visits * 2 and win_rate > 0.85):
+                        print(f"Dừng sớm: Cột {best_child.move}, win_rate={win_rate:.2f}, visits={best_child.visits}")
+                        break
     
     elapsed_time = time.time() - start_time
     print(f"MCTS: {sim_count} mô phỏng trong {elapsed_time:.3f}s ({elapsed_time/time_limit*100:.1f}% thời gian)")
-
-    total_visits = sum(child.visits for child in root.children)
-
     if root.children:
+        total_visits = sum(child.visits for child in root.children)
         print(f"Thống kê mô phỏng theo cột:")
         for child in sorted(root.children, key=lambda c: c.visits, reverse=True):
             if child.visits > 0:
