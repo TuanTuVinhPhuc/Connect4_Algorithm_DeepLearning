@@ -7,7 +7,7 @@ from collections import OrderedDict
 from settings import ROWS, COLUMNS, PLAYER, AI, EMPTY
 from board import is_valid_location, get_next_open_row, get_valid_locations, drop_piece, winning_move
 
-C_PARAM = 0.7 
+C_PARAM = 0.9
 MIN_SIMULATIONS = 40000
 TIME_LIMIT = 10
 
@@ -67,9 +67,9 @@ class MCTSNode:
 
         center_col = COLUMNS // 2
         weighted_moves = []
-        claimeven_factor = 1.4
-        baseinverse_factor = 2.8
-        oddthreat_factor = 1.1
+        claimeven_factor = 1.5
+        baseinverse_factor = 2.0
+        oddthreat_factor = 1.2
 
         # Cache get_next_open_row
         row_cache = {move: get_next_open_row(self.board, move) for move in self.untried_moves}
@@ -80,7 +80,7 @@ class MCTSNode:
             row = row_cache[move]
             if row is None:
                 continue
-            center_weight = 1.0 + (1.0 - abs(move - center_col) / center_col) * 4.0
+            center_weight = 1.0 + (1.0 - abs(move - center_col) / center_col) * 3.0
             if move == center_col:
                 center_weight *= 1.5 # Thêm chút bias cho center.
             claimeven_weight = claimeven_factor if row in [1, 3, 5] else 1.0
@@ -154,12 +154,12 @@ def evaluate_window(window_tuple, piece, position):
 
     score = 0
     SCORES = {
-    "win": 100,
+    "win": 10000,
     "open_three": 8,
     "blocked_three": 5,
     "connected_two": 2,
-    "threat_block_open": -9,
-    "threat_block": -6,
+    "threat_block_open": -12,
+    "threat_block": -9,
     "opp_two": -2
     }
 
@@ -180,13 +180,14 @@ def evaluate_window(window_tuple, piece, position):
     if piece_count == 4:
         return SCORES["win"] * center_factor
     elif piece_count == 3 and empty_count == 1:
-        return SCORES["blocked_three"] * center_factor
+        score += SCORES["blocked_three"] * center_factor
     elif piece_count == 2 and empty_count == 2:
-        return SCORES["connected_two"] * center_factor
+        score += SCORES["connected_two"] * center_factor
+    
     if opp_count == 3 and empty_count == 1:
-        return SCORES["threat_block"] * center_factor
+        score += SCORES["threat_block"] * center_factor
     elif opp_count == 2 and empty_count == 2:
-        return SCORES["opp_two"] * center_factor
+        score += SCORES["opp_two"] * center_factor
     
     return score * center_factor
 
@@ -206,12 +207,12 @@ def evaluate_board(board, piece):
     
     score = 0
     SCORES = {
-        "win": 100,
-        "open_three": 8,
-        "blocked_three": 5,
+        "win": 10000,
+        "open_three": 12,
+        "blocked_three": 8,
         "connected_two": 2,
-        "threat_block_open": -9,
-        "threat_block": -6,
+        "threat_block_open": -12,
+        "threat_block": -9,
         "opp_two": -2
     }
 
@@ -282,7 +283,7 @@ def evaluate_board(board, piece):
     
     board_eval_cache[cache_key] = score
     if len(board_eval_cache) > MAX_CACHE_SIZE * 2: 
-        board_eval_cache.popitem(last=False)
+        board_eval_cache.popitem()
         
     return score
 
@@ -447,6 +448,79 @@ def find_forced_win(board, player, depth):
     move, _ = find_forced_win_move(board, player, depth)
     return move
 
+def check_open_three_threat(board, opponent):
+    valid_moves = get_valid_locations(board)
+    if not valid_moves:
+        return None, None
+    
+    board = np.array(board)
+    
+    for move in valid_moves:
+        row = get_next_open_row(board, move)
+        if row is None:
+            continue
+
+        board[row, move] = opponent
+        threat_found = False
+        threat_row = None
+  
+        for r in range(ROWS):
+            windows = np.lib.stride_tricks.sliding_window_view(board[r], 4)
+            for c in range(len(windows)):
+                window = windows[c]
+                if (np.count_nonzero(window == opponent) == 3 and np.count_nonzero(window == EMPTY) == 1):
+                    threat_found = True
+                    threat_row = r
+                    break
+            if threat_found:
+                break
+        
+        # Kiểm tra hàng dọc
+        if not threat_found:
+            for c in range(COLUMNS):
+                windows = np.lib.stride_tricks.sliding_window_view(board[:, c], 4)
+                for r in range(len(windows)):
+                    window = windows[r]
+                    if (np.count_nonzero(window == opponent) == 3 and np.count_nonzero(window == EMPTY) == 1 and row in [1, 3, 5]):
+                        threat_found = True
+                        empty_pos = np.where(window == EMPTY)[0][0]
+                        threat_row = r + empty_pos
+                        break
+                if threat_found:
+                    break
+ 
+        if not threat_found:
+            for r in range(ROWS-3):
+                for c in range(COLUMNS-3):
+                    window = board[r:r+4, c:c+4].diagonal()
+                    if np.count_nonzero(window == opponent) == 3 and np.count_nonzero(window == EMPTY) == 1:
+                        threat_found = True
+                        empty_pos = np.where(window == EMPTY)[0][0]
+                        threat_row = r + empty_pos
+                        break
+                if threat_found:
+                    break
+ 
+        if not threat_found:
+            for r in range(3, ROWS):
+                for c in range(COLUMNS-3):
+                    window = np.fliplr(board[r-3:r+1, c:c+4]).diagonal()
+                    if np.count_nonzero(window == opponent) == 3 and np.count_nonzero(window == EMPTY) == 1:
+                        threat_found = True
+                        empty_pos = np.where(window == EMPTY)[0][0]
+                        threat_row = r - empty_pos
+                        break
+                if threat_found:
+                    break
+        
+        # Undo
+        board[row, move] = EMPTY
+        
+        if threat_found:
+            return move, threat_row
+    
+    return None, None
+
 def rollout_policy(board, player):
     valid_moves = get_valid_locations(board)
     if not valid_moves:
@@ -486,6 +560,10 @@ def rollout_policy(board, player):
     if opponent_two_way is not None:
         return opponent_two_way
     
+    open_three_way, _ = check_open_three_threat(board, opponent)
+    if open_three_way is not None:
+        return open_three_way
+    
     # Kiểm tra forced win
     pieces_count = sum((row == PLAYER).sum() + (row == AI).sum() for row in board)
     if (pieces_count > 15): 
@@ -501,8 +579,8 @@ def rollout_policy(board, player):
             continue
             
         board[row][move] = player
-        score = evaluate_board(board, player) - evaluate_board(board, opponent)
-        center_preference = (1.0 - abs(move - COLUMNS // 2) / (COLUMNS // 2)) * 5
+        score = evaluate_board(board, player)
+        center_preference = (1.0 - abs(move - COLUMNS // 2) / (COLUMNS // 2)) * 3.5
         score += center_preference
         
         # Kiểm tra chuỗi 3 quân cục bộ
@@ -514,7 +592,7 @@ def rollout_policy(board, player):
                     if window.count(player) == 3 and window.count(EMPTY) == 1:
                         score += 3
                     elif window.count(opponent) == 3 and window.count(EMPTY) == 1:
-                        score -= 3
+                        score -= 6
         
         board[row][move] = EMPTY
         move_scores.append((move, score))
@@ -575,7 +653,6 @@ def rollout(board, player):
     normalized_score = 0.5 + score / (2 * (abs(score) + 1))
     return min(max(normalized_score, 0.0), 1.0)   
 
-
 def mcts_search(board, player, simulations=MIN_SIMULATIONS, time_limit=TIME_LIMIT):
     global board_eval_cache, two_way_win_cache, forced_win_cache
     board_eval_cache = {}
@@ -605,16 +682,25 @@ def mcts_search(board, player, simulations=MIN_SIMULATIONS, time_limit=TIME_LIMI
                     
     two_way_move, _ = detect_two_way_win(board.tolist(), player)
     if two_way_move is not None:
+        print("sủ dụng chiến thuật 2 nước thắng")
         return two_way_move
 
     opponent_two_way, _ = detect_two_way_win(board.tolist(), opponent)
     if opponent_two_way is not None:
+        print("sủ dụng chiến thuật chặn 2 nước thắng")
         return opponent_two_way
+    
+    open_three_way, threat_row = check_open_three_threat(board, opponent)
+    if open_three_way is not None and threat_row > 2:
+        print("sử dụng check_open_three_threat")
+        print("threat: ", threat_row)
+        return open_three_way
     
     pieces_count = sum((row == PLAYER).sum() + (row == AI).sum() for row in board)
     if (pieces_count > 10):
         forced_win_move = find_forced_win(board.tolist(), player, 4)
         if forced_win_move is not None:
+            print("sủ dụng chiến thuật chắc chắn thắng")
             return forced_win_move
     
     # Ưu tiên cột giữa nếu là bàn cờ trống
