@@ -40,6 +40,7 @@ async def make_move(game_state: GameState) -> AIResponse:
         print("🎯 Valid Moves:", game_state.valid_moves)
         print("🧠 Current Player:", game_state.current_player)
         print("💻 Selected Move:", selected_move)
+        print("Opp player", min_player)
         return AIResponse(move=selected_move)
     except Exception as e:
         print("❌ Có lỗi xảy ra trong thuật toán AI:", e)
