@@ -7,7 +7,7 @@ from settings import *
 from ai import minimax
 from MCTS import mcts_search
 import numpy as np
-import time
+import math
 
 app = FastAPI()
 
@@ -32,8 +32,10 @@ async def make_move(game_state: GameState) -> AIResponse:
     try:
         if not game_state.valid_moves:
             raise ValueError("Không có nước đi hợp lệ")
-
-        selected_move = mcts_search(game_state.board, game_state.current_player, 30000, 6)
+        
+        max_player = game_state.current_player
+        min_player = 2 if game_state.current_player == 1 else 1
+        selected_move = minimax(game_state.board, 7, -math.inf, math.inf, max_player, min_player, True, 3)
 
         return AIResponse(move=selected_move)
     except Exception as e:
