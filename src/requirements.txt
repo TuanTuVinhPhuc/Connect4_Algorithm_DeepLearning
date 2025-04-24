@@ -4,4 +4,3 @@ python-multipart==0.0.17
 pydantic==2.10.6
 pygame
 numpy
-math
