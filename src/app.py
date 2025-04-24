@@ -36,7 +36,10 @@ async def make_move(game_state: GameState) -> AIResponse:
         max_player = game_state.current_player
         min_player = 2 if game_state.current_player == 1 else 1
         selected_move, _ = minimax(game_state.board, 7, -math.inf, math.inf, max_player, min_player, True, 3)
-
+        print("🔍 GameState:", game_state.board)
+        print("🎯 Valid Moves:", game_state.valid_moves)
+        print("🧠 Current Player:", game_state.current_player)
+        print("💻 Selected Move:", selected_move)
         return AIResponse(move=selected_move)
     except Exception as e:
         print("❌ Có lỗi xảy ra trong thuật toán AI:", e)
