@@ -23,7 +23,6 @@ connect4/
 │   ├── ai_battle.py       # AI đấu với AI để so sánh sức mạnh các thuật toán
 │   ├── MCTS.py            # Thuật toán Monte Carlo Tree Search
 │   ├── ai.py              # Thuật toán Minimax + Alpha-Beta Pruning
-│   ├── heuristic.py       # Hàm lượng giá heuristic đơn giản
 │   └── model.ipynb        # Notebook huấn luyện mạng neural (AlphaZero style)
 ├── model/                 # Thư mục chứa các model mạng neural đã huấn luyện
 └── README.md              # File mô tả dự án này
