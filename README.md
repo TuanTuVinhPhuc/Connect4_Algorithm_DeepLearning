@@ -2,51 +2,52 @@
 
 ---
 
-## 🧠 Giới thiệu
-Đây là một trò chơi **Connect4 cổ điển**, nơi bạn có thể thi đấu với nhiều loại AI khác nhau: từ **Minimax**, **Heuristic**, **MCTS**, cho tới **mạng Neural đơn giản**.
+## 🧠 Introduction
+This is a classic **Connect4** game where you can compete against various AI types: from **Minimax**, **Heuristic**, **MCTS**, to a **simple Neural Network**.
 
-Dự án được chia thành **2 phần chính**:
+The project is divided into **2 main parts**:
 
-- **Phần giao diện**: Quản lý bàn cờ, khởi tạo, và hiển thị game (sử dụng **Pygame** hoặc thư viện đồ họa khác).
-- **Phần AI**: Bao gồm các thuật toán trí tuệ nhân tạo giúp máy tính đưa ra nước đi tối ưu.
+- **Interface**: Manages the board, initializes, and displays the game (using **Pygame** or other graphics libraries).
+- **AI**: Includes artificial intelligence algorithms to help the computer make optimal moves.
 
 ---
 
-## 📁 Cấu trúc thư mục
+## 📁 Project Structure
 <pre>
 connect4/
 ├── src/
-│   ├── setting.py         # Thông số cố định của bàn cờ (kích thước, màu sắc, v.v.)
-│   ├── board.py           # Logic khởi tạo và cập nhật bàn cờ
-│   ├── ultis.py           # Các hàm hỗ trợ thao tác và cập nhật bàn cờ
-│   ├── game.py            # Giao diện đấu giữa con người và AI
-│   ├── ai_battle.py       # AI đấu với AI để so sánh sức mạnh các thuật toán
-│   ├── MCTS.py            # Thuật toán Monte Carlo Tree Search
-│   ├── ai.py              # Thuật toán Minimax + Alpha-Beta Pruning
-│   └── model.ipynb        # Notebook huấn luyện mạng neural (AlphaZero style)
-├── model/                 # Thư mục chứa các model mạng neural đã huấn luyện
-└── README.md              # File mô tả dự án này
+│   ├── setting.py         # Fixed board parameters (size, colors, etc.)
+│   ├── board.py           # Logic for initializing and updating the board
+│   ├── ultis.py           # Helper functions for board operations
+│   ├── game.py            # Interface for human vs AI matches
+│   ├── ai_battle.py       # AI vs AI matches to compare algorithm strengths
+│   ├── MCTS.py            # Monte Carlo Tree Search algorithm
+│   ├── ai.py              # Minimax + Alpha-Beta Pruning algorithm
+│   └── model.ipynb        # Notebook for training neural network (AlphaZero style)
+├── model/                 # Folder containing trained neural network models
+└── README.md              # Project description file
 </pre>
+
 ---
 
-## 🧠 Thuật toán AI đã triển khai
+## 🧠 Implemented AI Algorithms
 
-### 🔍 Minimax với Alpha-Beta Pruning
+### 🔍 Minimax with Alpha-Beta Pruning
 
-- Triển khai thuật toán Minimax cơ bản, kết hợp với **cắt tỉa Alpha-Beta** để giảm thiểu số node cần duyệt.
-- Được tối ưu hóa về hiệu suất để chơi mượt ở độ sâu phù hợp trong thời gian thực.
-- Có thể đánh giá nước đi dựa trên **hàm lượng giá heuristic** tuỳ chỉnh.
+- Implements basic Minimax algorithm with **Alpha-Beta pruning** to reduce the number of nodes to traverse.
+- Optimized for performance to play smoothly at a reasonable depth in real-time.
+- Move evaluation is based on a **custom heuristic function**.
 
 ### 🌳 Monte Carlo Tree Search (MCTS)
 
-- Cài đặt MCTS chuẩn, kết hợp với các chiến lược chọn node như **Upper Confidence Bound (UCB)**.
-- Đã được tối ưu về số lần rollout và thời gian suy nghĩ, phù hợp để thi đấu real-time.
+- Standard MCTS implementation combined with node selection strategies such as **Upper Confidence Bound (UCB)**.
+- Optimized for the number of rollouts and thinking time, suitable for real-time matches.
 
-### 🧠 Mạng Neural - Phong cách AlphaZero
+### 🧠 Neural Network - AlphaZero Style
 
-- Áp dụng **Reinforcement Learning (RL)** để huấn luyện mạng neural theo phong cách AlphaZero:
-  - Dùng thuật toán **MCTS**, **Minimax** và **chính nó trong quá khứ** làm đối thủ sinh dữ liệu tự học.
-  - Mạng học để **dự đoán xác suất thắng** và **hành động tốt nhất** từ trạng thái.
-- Quá trình training được thực hiện trong `model.ipynb`, và mô hình được lưu tại thư mục `model/`.
+- Uses **Reinforcement Learning (RL)** to train a neural network in AlphaZero style:
+  - Employs **MCTS**, **Minimax**, and **self-play** to generate training data.
+  - Network learns to **predict win probabilities** and **best moves** from a given state.
+- Training is performed in `model.ipynb`, and the trained models are saved in the `model/` folder.
 
 ---
